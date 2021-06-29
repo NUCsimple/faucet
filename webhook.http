@@ -1,0 +1,6 @@
+POST https://bin.webhookrelay.com/v1/webhooks/
+Content-Type: application/json
+
+{"user_id": "123", "coin":100, "success":1, "msg":"OK!" }
+
+###

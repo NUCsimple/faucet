@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: faucet
+spec:
+  template:
+    metadata:
+      name: faucet
+    spec:
+      containers:
+        - name: faucet
+          image: 1314520999/faucet:v1
+          args:
+            - --lable=""
+      restartPolicy: Never

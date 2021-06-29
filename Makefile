@@ -1,0 +1,2 @@
+build:
+	go run cmd/main.go --label="app=ingress-nginx" --container="nginx-ingress-controller" --webhook="https://bin.webhookrelay.com/v1/webhooks/" --command='curl -s http://server.golang-external-scaler-ns.svc:8080/get'
