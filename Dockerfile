@@ -4,7 +4,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o faucet main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o faucet cmd/main.go
 
 
 FROM alpine:latest

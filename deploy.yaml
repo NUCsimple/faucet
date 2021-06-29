@@ -10,6 +10,10 @@ spec:
       containers:
         - name: faucet
           image: 1314520999/faucet:v1
-          args:
-            - --lable=""
+          command:
+            - "/faucet"
+            - --label="app=bee"
+            - --container=bee
+            - --webhook="http://test.com/put"
+            - --command="curl -s localhost:1635/addresses"
       restartPolicy: Never
