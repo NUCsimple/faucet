@@ -2,19 +2,21 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: faucet
+  namespace: kube-system
 spec:
   template:
     metadata:
       name: faucet
     spec:
+      serviceAccount: admin
       containers:
         - name: faucet
-          image: registry.cn-guangzhou.aliyuncs.com/carsnow/faucet:v1
+          image: registry.cn-hangzhou.aliyuncs.com/carsnow/faucet:v1.1.0
           imagePullPolicy: IfNotPresent
           command:
             - "/faucet"
-            - --label="app.kubernetes.io/name=bee"
-            - --container=bee
-            - --webhook="http://test.com/put"
-            - --command="curl -s localhost:1635/addresses"
+            - "--label=app.kubernetes.io/name=bee"
+            - "--container=bee"
+            - "--webhook=https://bin.webhookrelay.com/v1/webhooks/"
+            - "--command=curl -s localhost:1635/addresses"
       restartPolicy: OnFailure
