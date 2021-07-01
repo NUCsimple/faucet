@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -22,14 +21,5 @@ func TestSendReport(t *testing.T) {
 		if err == nil {
 			t.Errorf("send report logic is wrong")
 		}
-	})
-}
-
-func TestNewKubernetesClientOutSide(t *testing.T) {
-	t.Run("ss", func(t *testing.T) {
-		//fmt.Printf("%d %%", v)
-		rate := float64(60) / float64(70) * 100
-		I := fmt.Sprintf("%f %%", rate)
-		fmt.Println(I)
 	})
 }
