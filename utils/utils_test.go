@@ -1,6 +1,9 @@
 package utils
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestSendReport(t *testing.T) {
 	msg := "test message"
@@ -10,7 +13,7 @@ func TestSendReport(t *testing.T) {
 	t.Run("correct webhook", func(t *testing.T) {
 		err := SendReport(correctWebHook, msg)
 		if err != nil {
-			t.Errorf("send report error: %v",err)
+			t.Errorf("send report error: %v", err)
 		}
 	})
 
@@ -22,3 +25,11 @@ func TestSendReport(t *testing.T) {
 	})
 }
 
+func TestNewKubernetesClientOutSide(t *testing.T) {
+	t.Run("ss", func(t *testing.T) {
+		//fmt.Printf("%d %%", v)
+		rate := float64(60) / float64(70) * 100
+		I := fmt.Sprintf("%f %%", rate)
+		fmt.Println(I)
+	})
+}

@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"github.com/spf13/pflag"
+	"github.com/swarm/faucet/options"
 	"github.com/swarm/faucet/utils"
 	"io"
 	"io/ioutil"
@@ -30,8 +31,10 @@ type Result struct {
 }
 
 type Report struct {
-	Message   string `json:"message"`
-	Addresses []Address
+	Message       string   `json:"message"`
+	SuccessRate   string   `json:"success_rate"`
+	FailedPodList []string `json:"failed_pod_list"`
+	Addresses     []Address
 }
 
 type Address struct {
@@ -39,16 +42,8 @@ type Address struct {
 	Ethereum string `json:"ethereum"`
 }
 
-// Option is common params
-type Option struct {
-	labelSelector string
-	container     string
-	command       string
-	webhookUrl    string
-}
-
 var (
-	opt      Option
+	opt      options.Option
 	PodCount int
 	result   Result
 	wg       sync.WaitGroup
@@ -56,10 +51,10 @@ var (
 
 func main() {
 	flags := pflag.NewFlagSet("main", pflag.ExitOnError)
-	flags.StringVar(&opt.labelSelector, "label", "", "Which label for pod.")
-	flags.StringVar(&opt.container, "container", "", "The name of the container you want to enter.")
-	flags.StringVar(&opt.command, "command", "", "which command be execute in pod.")
-	flags.StringVar(&opt.webhookUrl, "webhook", "", "webhook url")
+	flags.StringVar(&opt.LabelSelector, "label", "", "Which label for pod.")
+	flags.StringVar(&opt.Container, "container", "", "The name of the container you want to enter.")
+	flags.StringVar(&opt.Command, "command", "", "which command be execute in pod.")
+	flags.StringVar(&opt.WebhookUrl, "webhook", "", "webhook url")
 
 	pflag.CommandLine = flags
 	pflag.Parse()
@@ -76,10 +71,10 @@ func main() {
 }
 
 func Run() error {
-	//cli := utils.NewKubernetesClient()
-	cli := utils.NewKubernetesClientOutSide("/Users/carson/.kube/config")
+	cli := utils.NewKubernetesClient()
+	//cli := utils.NewKubernetesClientOutSide("/Users/carson/.kube/config")
 	podList, err := cli.Clientset.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: opt.labelSelector,
+		LabelSelector: opt.LabelSelector,
 	})
 	if err != nil {
 		return err
@@ -87,7 +82,7 @@ func Run() error {
 
 	for _, pod := range podList.Items {
 		if pod.Status.Phase == "Running" {
-			klog.Infof("Exec [%v] in pod %v", opt.command, pod.Name)
+			klog.Infof("Exec [%v] in pod %v", opt.Command, pod.Name)
 			wg.Add(1)
 			PodCount++
 			go exec(cli, pod)
@@ -100,21 +95,23 @@ func Run() error {
 	// Validate result
 	if PodCount != len(result.Addresses) {
 		klog.Errorf("failed got all faucet addr,runnging pod %d,but got %d faucet addr.\n", PodCount, len(result.Addresses))
-		return errors.New("failed got all faucet addr")
+		result.Report.Message = "failed got all faucet addr"
+		rate := float64(len(result.Addresses)) / float64(PodCount) * 100
+		result.Report.SuccessRate = fmt.Sprintf("%f %%", rate)
+	} else {
+		result.Report.Message = "OK"
+		result.Report.SuccessRate = fmt.Sprintf("%d %%", 100)
 	}
 
-	result.Report.Message = "OK"
 	marshal, err := json.Marshal(result.Report)
 	if err != nil {
 		klog.Errorf("failed to encoding result,because of %v", err)
-		return errors.New("failed to encoding result")
 	}
 
-	klog.Infof("Send report %v to %s", string(marshal), opt.webhookUrl)
-	err = utils.SendReport(opt.webhookUrl, string(marshal))
+	klog.Infof("Send report %v to %s", string(marshal), opt.WebhookUrl)
+	err = utils.SendReport(opt.WebhookUrl, string(marshal))
 	if err != nil {
 		klog.Error(err)
-		return err
 	}
 
 	return nil
@@ -122,6 +119,7 @@ func Run() error {
 
 // exec is used by get faucet address
 func exec(cli *utils.KubernetesClient, pod api.Pod) {
+	// 临界区太大
 	result.Lock()
 	defer result.Unlock()
 	defer wg.Done()
@@ -136,10 +134,10 @@ func exec(cli *utils.KubernetesClient, pod api.Pod) {
 	cmd := make([]string, 0)
 	cmd = append(cmd, "sh")
 	cmd = append(cmd, "-c")
-	cmd = append(cmd, opt.command)
+	cmd = append(cmd, opt.Command)
 
 	req.VersionedParams(&api.PodExecOptions{
-		Container: opt.container,
+		Container: opt.Container,
 		Command:   cmd,
 		Stdin:     false,
 		Stdout:    true,
@@ -150,6 +148,7 @@ func exec(cli *utils.KubernetesClient, pod api.Pod) {
 	exec, err := remotecommand.NewSPDYExecutor(cli.RestConfig, "POST", req.URL())
 	if err != nil {
 		klog.Errorf("error when NewSPDYExecutor, err: %s", err)
+		result.FailedPodList = append(result.FailedPodList, pod.Name)
 		return
 	}
 
@@ -166,6 +165,7 @@ func exec(cli *utils.KubernetesClient, pod api.Pod) {
 	buffer, err := ioutil.ReadAll(reader)
 	if err != nil {
 		klog.Warningf("read resp got error: %s", err)
+		result.FailedPodList = append(result.FailedPodList, pod.Name)
 		return
 	}
 
@@ -175,6 +175,7 @@ func exec(cli *utils.KubernetesClient, pod api.Pod) {
 	err = json.Unmarshal(buffer, &resp)
 	if err != nil {
 		klog.Warningf("unmarshal json %s got error: %s", respString, err)
+		result.FailedPodList = append(result.FailedPodList, pod.Name)
 		return
 	}
 	resp.PodName = pod.Name
