@@ -11,7 +11,7 @@ spec:
       serviceAccount: admin
       containers:
         - name: faucet
-          image: registry.cn-hangzhou.aliyuncs.com/carsnow/faucet:v1.1.0
+          image: registry.cn-hangzhou.aliyuncs.com/carsnow/faucet:v1.2
           imagePullPolicy: IfNotPresent
           command:
             - "/faucet"
